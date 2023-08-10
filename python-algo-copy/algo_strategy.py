@@ -8,15 +8,6 @@ import json
 global WALL, SUPPORT, TURRET, SCOUT, DEMOLISHER, INTERCEPTOR, MP, SP
 global ADVANTAGE, DISADVANTAGE, BALANCE
 
-
-def is_badly_damaged(game_state, location):
-    return False
-
-
-def count_structure(unit_type, player_index):
-    return 0
-
-
 class AlgoStrategy(gamelib.AlgoCore):
     def __init__(self):
         # Boilerplate for an algo.
@@ -149,6 +140,12 @@ class AlgoStrategy(gamelib.AlgoCore):
         game_state.attempt_spawn(TURRET, self.base_turret_locations)
         game_state.attempt_upgrade(self.base_turret_locations)
         game_state.attempt_spawn(WALL, self.base_wall_locations)
+
+    def is_badly_damaged(self,game_state, location):
+        return False
+
+    def count_structure(self, unit_type, player_index):
+        return 0
 
 
 if __name__ == "__main__":
