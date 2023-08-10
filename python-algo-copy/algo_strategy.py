@@ -119,9 +119,9 @@ class AlgoStrategy(gamelib.AlgoCore):
 
     def advantage_strategy(self, game_state):
         self.build_base(game_state)
-        self.build_a_few_defense(game_state)
+        self.build_a_few_turrets(game_state)
         self.build_a_few_supports(game_state)
-        self.build_more_defense(game_state)
+        self.build_more_turrets(game_state)
         self.build_more_supports(game_state)
         if game_state.number_affordable(DEMOLISHER) >= 4:
             self.demolisher_charge(game_state)
@@ -148,7 +148,7 @@ class AlgoStrategy(gamelib.AlgoCore):
             elif not self.is_badly_damaged(game_state, location):
                 game_state.attempt_upgrade(location)
 
-    def build_more_defense(self, game_state):
+    def build_more_turrets(self, game_state):
         game_state.attempt_spawn(TURRET, self.additional_turret_locations)
 
     def build_base(self, game_state):
@@ -164,7 +164,7 @@ class AlgoStrategy(gamelib.AlgoCore):
     def count_structure(self, unit_type, player_index):
         return 0
 
-    def build_a_few_defense(self, game_state):
+    def build_a_few_turrets(self, game_state):
         pass
 
     def build_a_few_supports(self, game_state):
