@@ -6,6 +6,7 @@
 6. Optimize additional defense & turret position.
 7. Optimize attacking strategies.
 8. Optimize upgrading strategies.
+9. Finish the helper function stubs.
 
 Reminder: we can use https://www.kevinbai.design/terminal-map-maker/
 to get locations easily.
