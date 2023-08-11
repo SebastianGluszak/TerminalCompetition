@@ -10,3 +10,4 @@ dist/*
 
 *.zip
 */.idea/*
+.idea
