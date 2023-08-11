@@ -236,13 +236,14 @@ class AlgoStrategy(gamelib.AlgoCore):
         RETURNS:
         List of structure counts for each player where counts[0] := ours counts[1] := opponent
         """
-        counts = [{"WALL": 0, "SUPPORT": 0, "TURRET": 0}, {"WALL": 0, "SUPPORT": 0, "TURRET": 0}]
+        counts = [{WALL: 0, SUPPORT: 0, TURRET: 0}, {WALL: 0, SUPPORT: 0, TURRET: 0}]
         for x in range(28):
             for y in range(28):
                 location = [x, y]
                 if game_state.game_map.in_arena_bounds(location):
-                    unit = game_state.contains_stationary_unit(game_state.self, location)
-                    counts[unit.player_index][unit.unit_type] += 1 if unit != False else 0
+                    unit = game_state.contains_stationary_unit(location)
+                    if unit is not False:
+                        counts[unit.player_index][unit.unit_type] += 1
         return counts
 
     def is_badly_damaged(self, game_state, location):
