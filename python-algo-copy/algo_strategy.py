@@ -245,6 +245,22 @@ class AlgoStrategy(gamelib.AlgoCore):
                     if unit is not False:
                         counts[unit.player_index][unit.unit_type] += 1
         return counts
+    
+    def get_all_structures(self, game_state):
+        """
+        Gets all structures for each player
+        This is called before deployment phase of each turn
+        ARGUMENTS:
+        self := self
+        game_state := game_state
+        RETURNS:
+        List of structure for each player where structures[0] := ours structures[1] := opponent
+        """
+        structures = [{WALL: [], SUPPORT: [], TURRET: []}, {WALL: [], SUPPORT: [], TURRET: []}]
+        for tile in game_state.game_map:
+            for unit in tile:
+                structures[unit.player_index][unit.unit_type].append(unit)
+        return structures
 
     def is_badly_damaged(self, game_state, location):
         """
