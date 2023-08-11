@@ -1,12 +1,14 @@
 import gamelib
 import random
-import math
-import warnings
 from sys import maxsize
-import json
+
+# import math
+# import warnings
+# import json
 
 global WALL, SUPPORT, TURRET, SCOUT, DEMOLISHER, INTERCEPTOR, MP, SP
 global ADVANTAGE, DISADVANTAGE, BALANCE
+
 
 class AlgoStrategy(gamelib.AlgoCore):
     def __init__(self):
@@ -35,7 +37,7 @@ class AlgoStrategy(gamelib.AlgoCore):
                                     [12, 9], [13, 9], [14, 9], [15, 9], [16, 9], [17, 9], [18, 9], [19, 9]]
         self.base_turret_locations = [[23, 12], [2, 11]]
 
-        # Additional turrets reinforce our defense. They're non-reactive.
+        # Additional turrets reinforce our defense. They're currently non-reactive.
         self.additional_turret_locations = [[1, 12], [23, 11], [22, 11], [25, 11]]
 
         # Supports reinforce our offense. They're currently non-reactive and prioritize higher Y-position for
@@ -87,9 +89,27 @@ class AlgoStrategy(gamelib.AlgoCore):
         game_state.suppress_warnings(True)  # Comment or remove this line to enable warnings.
 
         # User defined on_turn behavior
-        self.update_situation()
+        self.update_situation(game_state)
         self.situation_based_strategy(game_state, self.situation)
         game_state.submit_turn()
+
+    # Situation is estimated based on health, structures, and resources. It uses a scoring system.
+    def update_situation(self, game_state):
+        # Using the count_all_structures approach
+        counts = self.count_all_structures(game_state)
+        score = 0
+        score += 10 * (game_state.my_health - game_state.enemy_health)
+        score += 5 * (counts[0]["SUPPORT"] - counts[1]["SUPPORT"])
+        score += 3 * (counts[0]["TURRET"] - counts[1]["TURRET"])
+        score += 0.5 * (counts[0]["WALL"] - counts[1]["WALL"])
+        score += 1 * (game_state.get_resource(MP, 0) + game_state.get_resource(SP, 0)
+                      - game_state.get_resource(MP, 1) - game_state.get_resource(SP, 1))
+        if score > 30:
+            self.situation = ADVANTAGE
+        elif score < -30:
+            self.situation = DISADVANTAGE
+        else:
+            self.situation = BALANCE
 
     def situation_based_strategy(self, game_state, situation):
         if situation == ADVANTAGE:
@@ -98,10 +118,13 @@ class AlgoStrategy(gamelib.AlgoCore):
             self.disadvantage_strategy(game_state)
         else:
             self.balance_strategy(game_state)
+
     def advantage_strategy(self, game_state):
         self.build_base(game_state)
-        self.build_defense(game_state)
-        self.build_supports(game_state)
+        self.build_a_few_turrets(game_state)
+        self.build_a_few_supports(game_state)
+        self.build_more_turrets(game_state)
+        self.build_more_supports(game_state)
         if game_state.number_affordable(DEMOLISHER) >= 4:
             self.demolisher_charge(game_state)
 
@@ -117,21 +140,17 @@ class AlgoStrategy(gamelib.AlgoCore):
         game_state.attempt_spawn(DEMOLISHER, self.demolisher_assembly_point,
                                  num=game_state.number_affordable(DEMOLISHER))
 
-    # Situation is estimated based on health, structures, and resources.
-    def update_situation(self):
-        pass
-
-    def build_supports(self, game_state):
+    def build_more_supports(self, game_state):
         for location in self.support_locations:
             if game_state.number_affordable(SUPPORT) < 1:
                 break
             if not game_state.contains_stationary_unit(location):
                 game_state.attempt_spawn(SUPPORT, location)
                 game_state.attempt_upgrade(location)
-            elif not is_badly_damaged(game_state, location):
+            elif not self.is_badly_damaged(game_state, location):
                 game_state.attempt_upgrade(location)
 
-    def build_defense(self, game_state):
+    def build_more_turrets(self, game_state):
         game_state.attempt_spawn(TURRET, self.additional_turret_locations)
 
     def build_base(self, game_state):
@@ -141,11 +160,53 @@ class AlgoStrategy(gamelib.AlgoCore):
         game_state.attempt_upgrade(self.base_turret_locations)
         game_state.attempt_spawn(WALL, self.base_wall_locations)
 
-    def is_badly_damaged(self,game_state, location):
+    def is_badly_damaged(self, game_state, location):
         return False
 
-    def count_structure(self, unit_type, player_index):
-        return 0
+    def count_structure(self, game_state, unit_type, player_index):
+        """
+        Counts the number of specified structure for specified player
+        ARGUMENTS:
+        self := self
+        game_state := game_state
+        unit_type := one of [ "WALL", "SUPPORT", "TURRET" ]
+        player_index := one of [ 0, 1 ] where 0 := us 1 := opponent
+        RETURNS:
+        List of structure counts for each player where counts[0] := ours counts[1] := opponent
+        """
+        count = 0
+        for x in range(28):
+            for y in range(28):
+                location = [x, y]
+                if game_state.game_map.in_arena_bounds(location):
+                    unit = game_state.contains_stationary_unit(location)
+                    if unit.player_index == player_index and unit.unit_type == unit_type:
+                        count += 1
+        return count
+
+    def count_all_structures(self, game_state):
+        """
+        Counts the number of each particular structure for each player
+        ARGUMENTS:
+        self := self
+        game_state := game_state
+        RETURNS:
+        List of structure counts for each player where counts[0] := ours counts[1] := opponent
+        """
+        counts = [{ "WALL": 0, "SUPPORT": 0, "TURRET": 0}, { "WALL": 0, "SUPPORT": 0, "TURRET": 0}]
+        for x in range(28):
+            for y in range(28):
+                location = [x, y]
+                if game_state.game_map.in_arena_bounds(location):
+                    unit = game_state.contains_stationary_unit(game_state.self, location)
+                    counts[unit.player_index][unit.unit_type] += 1 if unit != False else 0
+        return counts
+
+    def build_a_few_turrets(self, game_state):
+        pass
+
+    def build_a_few_supports(self, game_state):
+        pass
 
 
 if __name__ == "__main__":
