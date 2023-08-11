@@ -389,10 +389,10 @@ class AlgoStrategy(gamelib.AlgoCore):
         #self.exempt_walls.append(self.dynamic_attack_holes[self.dynamic_attack_index])
         if cur_hole in self.exempt_walls:
             self.exempt_walls.remove(cur_hole)
-        game_state.attempt_remove(self.dynamic_attack_holes[self.dynamic_attack_index])
+        #game_state.attempt_remove(self.dynamic_attack_holes[self.dynamic_attack_index])
         ### Now we need to block the hole from 2 turns ago
         old_hole = self.dynamic_attack_holes[self.dynamic_attack_index-2]
-        game_state.attempt_spawn(WALL, old_hole)
+        #game_state.attempt_spawn(WALL, old_hole)
 
         self.dynamic_attack_index += 1
         self.dynamic_attack_index %= len(self.dynamic_attack_holes)
