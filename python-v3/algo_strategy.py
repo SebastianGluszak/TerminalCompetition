@@ -30,30 +30,33 @@ class AlgoStrategy(gamelib.AlgoCore):
         # Base walls and base turrets are what we try to maintain all the time.
         # The base walls direct our mobile units to the enemy's right flank.
         # The base turrets focuses on our own right flank.
-        self.base_wall_locations = [[0, 13], [1, 13], [23, 13], [26, 13], [27, 13], [2, 12], [3, 12], [22, 12],
-                                    [25, 12],
-                                    [4, 11], [21, 11], [5, 10], [20, 10], [6, 9], [7, 9], [8, 9], [9, 9],
-                                    [10, 9], [11, 9],
-                                    [12, 9], [13, 9], [14, 9], [15, 9], [16, 9], [17, 9], [18, 9], [19, 9]]
-        self.base_turret_locations = [[23, 12], [2, 11]]
+        self.base_wall_locations = [[0, 13], [1, 13], [23, 13], [25, 13], [26, 13],
+                                     [27, 13], [2, 12], [3, 12], [22, 12], [25, 12],
+                                       [4, 11], [21, 11], [25, 11], [5, 10], [6, 10], 
+                                       [7, 10], [8, 10], [9, 10], [10, 10], [11, 10], 
+                                       [12, 10], [13, 10], [14, 10], [15, 10], [16, 10], 
+                                       [17, 10], [18, 10], [19, 10], [20, 10], [24, 10], [23, 9]]
+        self.important_turrets = [[26,12], [23, 12], [3, 11]]
+        self.base_turret_locations = [[22, 11], [21,10], [4,10], [1,12]]
 
         # Additional turrets reinforce our defense.
-        self.non_reactive_turret_locations = [[1, 12], [23, 11], [22, 11], [25, 11]]
+        self.non_reactive_turret_locations = [[1, 12], [21, 12], [26, 12], [3, 11], [20, 11], [4, 10], [21, 10], [20, 9]]
         self.reactive_turret_locations = [[]]
 
         # Supports reinforce our offense. They're currently non-reactive and prioritize higher Y-position for
         # potential upgrading. I would suppose we won't have reactive supports.
-        self.support_locations = [[21, 10], [22, 10], [20, 9], [21, 9], [7, 8], [8, 8], [9, 8], [10, 8],
-                                  [11, 8], [12, 8], [13, 8], [14, 8], [15, 8], [16, 8], [17, 8], [18, 8],
-                                  [19, 8]]
+        self.support_locations = [[6, 8], [8, 8], [10, 8], [12, 8],
+                                                             [14, 8], [16, 8], [18, 8], [8, 7],
+                                                               [10, 7], [12, 7], [14, 7], [16, 7],
+                                                                 [10, 6], [14, 6]]
 
         # The demolisher_charge is one of our Zerg rush strategies. It should be used when the enemy has some defense
         # while we don't have numerous supports. We'll stack demolishers on one point to achieve maximal efficiency.
-        self.demolisher_assembly_point = [[4, 9]]
+        self.demolisher_assembly_point = [[6, 7]]
 
         # The scout_charge is one of our Zerg rush strategies. It should be used when we have lots of supports,
         # or when we are at a huge advantage, or if we find a huge breach in enemy's defense.
-        self.scout_assembly_point = [[4, 9]]
+        self.scout_assembly_point = [[6, 7]]
 
         # This might be useful in the future.
         # self.helper_map = gamelib.game_map.GameMap(self.config)
@@ -163,6 +166,7 @@ class AlgoStrategy(gamelib.AlgoCore):
 
     # This calls corresponding strategies. It's called each turn.
     def situation_based_strategy(self, game_state, situation):
+        gamelib.debug_write(f"Current status: {self.situation}")
         if situation == ADVANTAGE:
             self.advantage_strategy(game_state)
         elif situation == DISADVANTAGE:
@@ -173,6 +177,9 @@ class AlgoStrategy(gamelib.AlgoCore):
     def advantage_strategy(self, game_state):
         # Vanilla idea: first make sure base is good, then build a few turrets and supports, then assemble troops and
         # prepare for an attack. If we're rich in structure points, then build more supports first and then turrets.
+
+        attacks = []
+        
         self.build_base(game_state)
         self.build_a_few_turrets(game_state)
         self.build_a_few_supports(game_state)
@@ -180,9 +187,21 @@ class AlgoStrategy(gamelib.AlgoCore):
         self.build_more_turrets(game_state)
         # We might also want to attack only if we have at least one support.
         if game_state.number_affordable(DEMOLISHER) >= 4:
-            self.demolisher_charge(game_state)
+            attacks.append(self.demolisher_charge)
+            attacks.append(self.demolisher_charge)
+            attacks.append(self.demolisher_charge)
+            attacks.append(self.demolisher_charge)
+        if game_state.number_affordable(SCOUT) >= 14:
+            attacks.append(self.scout_charge)
+        if len(attacks) >= 1:
+            ### Can do both attacks
+            chosen_attack = random.choice(attacks)
+            chosen_attack(game_state)
+            gamelib.debug_write(f"Chosen attack {chosen_attack}!")
+
 
     def balance_strategy(self, game_state):
+        self.send_interceptor(game_state)
         self.advantage_strategy(game_state)
 
     # We should prioritize improving advantage & balance strategies over implementing disadvantage_strategy, because we
@@ -193,14 +212,16 @@ class AlgoStrategy(gamelib.AlgoCore):
     ########################################################################################
     # Below this line are specific helper functions that are called by our strategies.
     ########################################################################################
-
+    
     def build_base(self, game_state):
         if game_state.turn_number == 0:
             gamelib.debug_write(f"Attemping to build walls")
             game_state.attempt_spawn(WALL, self.base_wall_locations)
+        game_state.attempt_spawn(TURRET, self.important_turrets)
+        game_state.attempt_upgrade(self.important_turrets)
+        game_state.attempt_spawn(WALL, self.base_wall_locations)
         game_state.attempt_spawn(TURRET, self.base_turret_locations)
         game_state.attempt_upgrade(self.base_turret_locations)
-        game_state.attempt_spawn(WALL, self.base_wall_locations)
 
     def build_a_few_turrets(self, game_state):
         pass
@@ -351,7 +372,8 @@ class AlgoStrategy(gamelib.AlgoCore):
         if turrets_built != len(self.to_replace[TURRET]) or walls_built != len(self.to_replace[WALL]) or supports_built != len(self.to_replace[SUPPORT]):
             gamelib.debug_write(f"Didn't replace all the badly damaged structures, probably ran out of money")
         return [turrets_built, walls_built, supports_built]
-
+    def send_interceptor(self, game_state):
+        game_state.attempt_spawn(INTERCEPTOR, self.scout_assembly_point)
 if __name__ == "__main__":
     algo = AlgoStrategy()
     algo.start()
