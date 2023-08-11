@@ -247,8 +247,32 @@ class AlgoStrategy(gamelib.AlgoCore):
         return counts
 
     def is_badly_damaged(self, game_state, location):
-        # could be different criteria for different structures (maybe it could be a parameter we’ll fine tune)
-        return False
+        """
+        Determines if a stationary unit at a particular location in badly damaged.
+        We can fine tune thresholds as necessary for each structure.
+        ARGUMENTS:
+        RGUMENTS:
+        self := self
+        game_state := game_state
+        location := [x, y] coordinate position on map
+        RETURNS:
+        Boolean whether or not unit is badly damaged
+        """
+        unit = game_state.contains_stationary_unit(location)
+        # No unit exists at location
+        if unit == False:
+            return False
+        
+        # Determine unit health state
+        remaining_health = unit.health / unit.max_health 
+
+        # Fine tune based on unit type
+        if unit.unit_type == "WALL":
+            return remaining_health < 0.5
+        elif unit.unit_type == "TURRET":
+            return remaining_health < 0.6
+        else: # SUPPORT
+            return remaining_health < 0.4
 
     def replace_broken_structures(self):
         # delete the structures badly damaged and under attack (need a way to check under attack or not)
