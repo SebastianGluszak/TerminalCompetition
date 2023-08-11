@@ -2,6 +2,7 @@ import gamelib
 import random
 from sys import maxsize
 import json
+from typing import List
 # import math
 # import warnings
 
@@ -68,6 +69,9 @@ class AlgoStrategy(gamelib.AlgoCore):
 
         # We record structure counts for analysis.
         self.last_turn_structure_count = {}
+
+        self.to_replace = {} ### {WALL:[], TURRET:[], SUPPORT:[]}
+
 
 
     # We do nothing in this function.
@@ -279,21 +283,73 @@ class AlgoStrategy(gamelib.AlgoCore):
         if unit == False:
             return False
         
-        # Determine unit health state
+        return self.is_badly_damaged_unit(unit)
+
+    def is_badly_damaged_unit(self, unit: gamelib.GameUnit):
         remaining_health = unit.health / unit.max_health 
 
         # Fine tune based on unit type
-        if unit.unit_type == "WALL":
+        if unit.unit_type == WALL:
             return remaining_health < 0.5
-        elif unit.unit_type == "TURRET":
+        elif unit.unit_type == TURRET:
             return remaining_health < 0.6
-        else: # SUPPORT
+        elif unit.unit_type == SUPPORT:
             return remaining_health < 0.4
+        else:
+            gamelib.debug_write(f"ERROR: Bad argument to 'is_badly_damaged_unit' expected structure type but got {unit.unit_type}")
+            return 1 ### Make sure it doesn't crash
 
-    def replace_broken_structures(self):
+    
+    def log_broken_structures(self, game_state: gamelib.GameState, our_structures_unit_list: List[gamelib.GameUnit]):
+        """
+        Logs badly damaged structures into self.to_replace dictionary
+        Uses a greedy strategy of turrets, walls then supports
+        For each category it takes the most damaged ones first.
+
+        
+        
+        """
         # delete the structures badly damaged and under attack (need a way to check under attack or not)
-        pass
 
+
+        ### Keeps track of which structures we deleted last turn and need to replace on the current turn
+        ### Current turn code will need to be modified to support this
+        self.to_replace = {TURRET:[], WALL:[], SUPPORT:[]}
+        bad_turrets = [turret for turret in our_structures_unit_list if turret.unit_type == TURRET and self.is_badly_damaged_unit(turret)]
+        bad_walls = [wall for wall in our_structures_unit_list if wall.unit_type == WALL and self.is_badly_damaged_unit(wall)]
+        bad_supports = [support for support in our_structures_unit_list if support.unit_type == SUPPORT and self.is_badly_damaged_unit(support)]
+
+        
+
+        order = [bad_turrets, bad_walls, bad_supports]
+
+        ### Just sort by remaining health ascending
+        ### Will replace the most damaged units of each type first
+
+        for unit_list in order:
+            if not unit_list:
+                continue
+            unit_list.sort(key=lambda x: x.health)
+            num_affordable = game_state.number_affordable(unit_list[0].unit_type)
+            num_to_replace = min(num_affordable, len(unit_list)) 
+            gamelib.debug_write(f"Trying to replace {num_to_replace} for unit {unit_list[0].unit_type}")
+            ### Don't want to try and delete more than we have
+            removal_locations = [[int(unit.x), int(unit.y)] for unit in unit_list[:num_to_replace]]
+            flagged_for_removal = game_state.attempt_remove(removal_locations)
+            if flagged_for_removal != len(removal_locations):
+                gamelib.debug_write(f"Was not able to flag all structures of type {unit_list[0].unit_type} for removal")
+            self.to_replace[unit_list[0].unit_type] = removal_locations
+        return list(map(len, self.to_replace.values()))
+                    
+    def build_replacements(self, game_state: gamelib.GameState):
+
+        turrets_built = game_state.attempt_spawn(TURRET, self.to_replace[TURRET])
+        walls_built = game_state.attempt_spawn(WALL, self.to_replace[WALL])
+        supports_built = game_state.attempt_spawn(SUPPORT, self.to_replace[SUPPORT])
+        gamelib.debug_write(f"Built {turrets_built} turrets {walls_built} walls and {supports_built} supports")
+        if turrets_built != len(self.to_replace[TURRET]) or walls_built != len(self.to_replace[WALL]) or supports_built != len(self.to_replace[SUPPORT]):
+            gamelib.debug_write(f"Didn't replace all the badly damaged structures, probably ran out of money")
+        return [turrets_built, walls_built, supports_built]
 
 if __name__ == "__main__":
     algo = AlgoStrategy()

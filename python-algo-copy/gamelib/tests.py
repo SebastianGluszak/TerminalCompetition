@@ -2,11 +2,19 @@ import unittest
 import json
 from .game_state import GameState
 from .unit import GameUnit
-
+import algo_strategy
 class BasicTests(unittest.TestCase):
-
-    def make_turn_0_map(self):
-        config = """
+    DEFAULT_TURN = """{"p2Units":[[],[],[],[],[],[],[]],"turnInfo":[0,0,-1],"p1Stats":[30.0,25.0,5.0,0],"p1Units":[[],[],[],[],[],[],[]],"p2Stats":[30.0,25.0,5.0,0],"events":{"selfDestruct":[],"breach":[],"damage":[],"shield":[],"move":[],"spawn":[],"death":[],"attack":[],"melee":[]}}"""
+    BADLY_DAMAGED_WALLS = """{"p2Units":[[],[],[],[],[],[],[]],"turnInfo":[0,0,-1],"p1Stats":[30.0,250.0,5.0,0],"p1Units":[[[ 24, 13, 75, "2" ],
+      [ 22, 11, 45, "8" ],
+      [ 10, 9, 10, "10" ],
+      [ 17, 9, 2, "12" ],
+      [ 14, 6, 3, "14" ],
+      [ 13, 6, 40, "44" ]],
+      [],[],[],[],[],[]],"p2Stats":[30.0,25.0,5.0,0],"events":{"selfDestruct":[],"breach":[],"damage":[],"shield":[],"move":[],"spawn":[],"death":[],"attack":[],"melee":[]}}"""
+    GAMES = [DEFAULT_TURN, BADLY_DAMAGED_WALLS]
+    
+    CONFIG = """
             {
             "seasonCompatibilityModeP1": 5,
             "seasonCompatibilityModeP2": 5,
@@ -186,12 +194,11 @@ class BasicTests(unittest.TestCase):
             }
         }
         """
-        turn_0 = """{"p2Units":[[],[],[],[],[],[],[]],"turnInfo":[0,0,-1],"p1Stats":[30.0,25.0,5.0,0],"p1Units":[[],[],[],[],[],[],[]],"p2Stats":[30.0,25.0,5.0,0],"events":{"selfDestruct":[],"breach":[],"damage":[],"shield":[],"move":[],"spawn":[],"death":[],"attack":[],"melee":[]}}"""
-        
-        state = GameState(json.loads(config), turn_0)
-        state.suppress_warnings(True)
-        return state
+    def make_turn_0_map(self, game_num=0):
 
+
+        state = GameState(json.loads(self.CONFIG), BasicTests.GAMES[game_num])
+        return state
     def test_basic(self):
         self.assertEqual(True, True, "It's the end of the world as we know it, and I feel fine")
 
@@ -275,3 +282,43 @@ class BasicTests(unittest.TestCase):
         actual = game.project_future_MP(turns)
         self.assertAlmostEqual(actual, expected, 0, "Expected {} MP {} turns from now, got {}".format(expected, turns, actual))
 
+
+
+    def test_badly_damaged_wall(self):
+        
+        game = self.make_turn_0_map(game_num=1)
+        WALL = game.config["unitInformation"][0]["shorthand"]
+        SUPPORT = game.config["unitInformation"][1]["shorthand"]
+        TURRET = game.config["unitInformation"][2]["shorthand"]
+        player = algo_strategy.AlgoStrategy()
+        player.on_game_start(game.config)
+
+        game.game_map.add_unit(WALL, [14,5], 0)
+        game.game_map.add_unit(WALL, [14,6], 0)
+        game.game_map.add_unit(WALL, [14,7], 0)
+        res = player.log_broken_structures(game, [GameUnit(WALL, game.config, 0, 5,14,5),
+                                                GameUnit(WALL, game.config, 0, 40,14,6),
+                                                GameUnit(WALL, game.config, 0, 45,14,7),
+                                                ])
+        self.assertListEqual(res,[0,1,0])
+
+    def test_badly_damaged_everything(self):
+        game = self.make_turn_0_map(game_num=1)
+        WALL = game.config["unitInformation"][0]["shorthand"]
+        SUPPORT = game.config["unitInformation"][1]["shorthand"]
+        TURRET = game.config["unitInformation"][2]["shorthand"]
+        player = algo_strategy.AlgoStrategy()
+        player.on_game_start(game.config)
+        game.game_map.add_unit(TURRET, [14,5], 0)
+        game.game_map.add_unit(WALL, [14,6], 0)
+        game.game_map.add_unit(SUPPORT, [14,7], 0)
+        game.game_map.add_unit(WALL, [14,8], 0)
+        res = player.log_broken_structures(game, [GameUnit(TURRET, game.config, 0, 2,14,5),
+                                        GameUnit(WALL, game.config, 0, 1,14,6),
+                                        GameUnit(SUPPORT, game.config, 0, 3,14,7),
+                                        GameUnit(WALL, game.config, 0, 40,14,8),
+                                        ])
+        self.assertListEqual(res,[1,1,1])
+
+        res = player.build_replacements(game)
+        self.assertListEqual(res, [1,1,1])
