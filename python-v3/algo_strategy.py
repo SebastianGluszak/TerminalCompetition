@@ -74,9 +74,10 @@ class AlgoStrategy(gamelib.AlgoCore):
         self.last_turn_structure_count = {}
 
         self.to_replace = {} ### {WALL:[], TURRET:[], SUPPORT:[]}
-
-
-
+        self.dynamic_attack_holes = [[9,10], [13,10], [17,10], [15,10]]
+        self.dynamic_attack_start_locations = [[5,8], [8,5], [10,3], [8,5]]
+        self.dynamic_attack_index = 0
+        self.exempt_walls = []
     # We do nothing in this function.
     def on_game_start(self, config):
         # Boilerplate for game_start.
@@ -187,11 +188,11 @@ class AlgoStrategy(gamelib.AlgoCore):
         self.build_more_turrets(game_state)
         # We might also want to attack only if we have at least one support.
         if game_state.number_affordable(DEMOLISHER) >= 4:
-            attacks.append(self.demolisher_charge)
-            attacks.append(self.demolisher_charge)
-            attacks.append(self.demolisher_charge)
-            attacks.append(self.demolisher_charge)
-        if game_state.number_affordable(SCOUT) >= 14:
+            # attacks.append(self.demolisher_charge)
+            # attacks.append(self.demolisher_charge)
+            attacks.append(self.dynamic_attack)
+            attacks.append(self.dynamic_attack)
+        if game_state.number_affordable(SCOUT) >= 13:
             attacks.append(self.scout_charge)
         if len(attacks) >= 1:
             ### Can do both attacks
@@ -201,7 +202,7 @@ class AlgoStrategy(gamelib.AlgoCore):
 
 
     def balance_strategy(self, game_state):
-        self.send_interceptor(game_state)
+        #self.send_interceptor(game_state)
         self.advantage_strategy(game_state)
 
     # We should prioritize improving advantage & balance strategies over implementing disadvantage_strategy, because we
@@ -214,12 +215,13 @@ class AlgoStrategy(gamelib.AlgoCore):
     ########################################################################################
     
     def build_base(self, game_state):
+        non_exempt_walls = [i for i in self.base_wall_locations if i not in self.exempt_walls]
         if game_state.turn_number == 0:
             gamelib.debug_write(f"Attemping to build walls")
-            game_state.attempt_spawn(WALL, self.base_wall_locations)
+            game_state.attempt_spawn(WALL, non_exempt_walls)
         game_state.attempt_spawn(TURRET, self.important_turrets)
         game_state.attempt_upgrade(self.important_turrets)
-        game_state.attempt_spawn(WALL, self.base_wall_locations)
+        game_state.attempt_spawn(WALL, non_exempt_walls)
         game_state.attempt_spawn(TURRET, self.base_turret_locations)
         game_state.attempt_upgrade(self.base_turret_locations)
 
@@ -372,8 +374,32 @@ class AlgoStrategy(gamelib.AlgoCore):
         if turrets_built != len(self.to_replace[TURRET]) or walls_built != len(self.to_replace[WALL]) or supports_built != len(self.to_replace[SUPPORT]):
             gamelib.debug_write(f"Didn't replace all the badly damaged structures, probably ran out of money")
         return [turrets_built, walls_built, supports_built]
+    
+
     def send_interceptor(self, game_state):
         game_state.attempt_spawn(INTERCEPTOR, self.scout_assembly_point)
+
+
+
+    def dynamic_attack(self, game_state: gamelib.GameState):
+        ### First we need to use the hole from last turn
+        cur_hole = self.dynamic_attack_holes[self.dynamic_attack_index-1]
+        ###  1000 just spawns as many as we can
+        game_state.attempt_spawn(DEMOLISHER, self.dynamic_attack_start_locations[self.dynamic_attack_index-1],1000)
+        #self.exempt_walls.append(self.dynamic_attack_holes[self.dynamic_attack_index])
+        if cur_hole in self.exempt_walls:
+            self.exempt_walls.remove(cur_hole)
+        #game_state.attempt_remove(self.dynamic_attack_holes[self.dynamic_attack_index])
+        ### Now we need to block the hole from 2 turns ago
+        old_hole = self.dynamic_attack_holes[self.dynamic_attack_index-2]
+        #game_state.attempt_spawn(WALL, old_hole)
+
+        self.dynamic_attack_index += 1
+        self.dynamic_attack_index %= len(self.dynamic_attack_holes)
+
+        
+
+    
 if __name__ == "__main__":
     algo = AlgoStrategy()
     algo.start()
