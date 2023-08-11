@@ -173,6 +173,9 @@ class AlgoStrategy(gamelib.AlgoCore):
     def advantage_strategy(self, game_state):
         # Vanilla idea: first make sure base is good, then build a few turrets and supports, then assemble troops and
         # prepare for an attack. If we're rich in structure points, then build more supports first and then turrets.
+
+        attacks = []
+        
         self.build_base(game_state)
         self.build_a_few_turrets(game_state)
         self.build_a_few_supports(game_state)
@@ -180,7 +183,15 @@ class AlgoStrategy(gamelib.AlgoCore):
         self.build_more_turrets(game_state)
         # We might also want to attack only if we have at least one support.
         if game_state.number_affordable(DEMOLISHER) >= 4:
-            self.demolisher_charge(game_state)
+            attacks.append(self.demolisher_charge)
+        if game_state.number_affordable(SCOUT) >= 14:
+            attacks.append(self.scout_charge)
+        if len(attacks) == 2:
+            ### Can do both attacks
+            chosen_attack = random.choice(attacks)
+            chosen_attack(game_state)
+            gamelib.debug_write(f"Chosen attack {chosen_attack}!")
+
 
     def balance_strategy(self, game_state):
         self.advantage_strategy(game_state)
