@@ -1,10 +1,9 @@
 import gamelib
 import random
 from sys import maxsize
-
-# import math
-# import warnings
-# import json
+import math
+import warnings
+import json
 
 global WALL, SUPPORT, TURRET, SCOUT, DEMOLISHER, INTERCEPTOR, MP, SP
 global ADVANTAGE, DISADVANTAGE, BALANCE
@@ -92,6 +91,44 @@ class AlgoStrategy(gamelib.AlgoCore):
         self.update_situation(game_state)
         self.situation_based_strategy(game_state, self.situation)
         game_state.submit_turn()
+
+    def on_action_frame(self, action_frame_game_state):
+        """
+        This is the action frame of the game. This function could be called 
+        hundreds of times per turn and could slow the algo down so avoid putting slow code here.
+        Processing the action frames is complicated so we only suggest it if you have time and experience.
+        Full doc on format of a game frame at in json-docs.html in the root of the Starterkit.
+        """
+        # Let's record at what position we get scored on
+        state = json.loads(action_frame_game_state)
+        # Check if opponent has deployed any mobile units (frame 0)
+        if state["turnInfo"][2] == 0:
+            p2_units = state["p2Units"]
+            scouts = p2_units[3]
+            demolishers = p2_units[4]
+            interceptors = p2_units[5]
+            for scout in scouts:
+                location = [scout[0], scout[1]]
+                self.enemy_assembly_points.append(location)
+            for demolisher in demolishers:
+                location = [demolisher[0], demolisher[1]]
+                self.enemy_assembly_points.append(location)
+            for interceptor in interceptors:
+                location = [interceptor[0], interceptor[1]]
+                self.enemy_assembly_points.append(location)
+                
+        # Check for breaches
+        events = state["events"]
+        breaches = events["breach"]
+        for breach in breaches:
+            location = breach[0]
+            unit_owner_self = True if breach[4] == 1 else False
+            # When parsing the frame data directly, 
+            # 1 is integer for yourself, 2 is opponent (StarterKit code uses 0, 1 as player_index instead)
+            if unit_owner_self:
+                self.locations_we_scored_on.append(location)
+            else:
+                self.locations_enemy_scored_on.append(location)
 
     # Situation is estimated based on health, structures, and resources. It uses a scoring system.
     def update_situation(self, game_state):
