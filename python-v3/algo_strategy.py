@@ -183,12 +183,12 @@ class AlgoStrategy(gamelib.AlgoCore):
             self.demolisher_charge(game_state)
 
     def balance_strategy(self, game_state):
-        pass
+        self.advantage_strategy(game_state)
 
     # We should prioritize improving advantage & balance strategies over implementing disadvantage_strategy, because we
     # might not fall behind at all if we do well in other situations.
     def disadvantage_strategy(self, game_state):
-        pass
+        self.advantage_strategy(game_state)
 
     ########################################################################################
     # Below this line are specific helper functions that are called by our strategies.
@@ -196,6 +196,7 @@ class AlgoStrategy(gamelib.AlgoCore):
 
     def build_base(self, game_state):
         if game_state.turn_number == 0:
+            gamelib.debug_write(f"Attemping to build walls")
             game_state.attempt_spawn(WALL, self.base_wall_locations)
         game_state.attempt_spawn(TURRET, self.base_turret_locations)
         game_state.attempt_upgrade(self.base_turret_locations)
