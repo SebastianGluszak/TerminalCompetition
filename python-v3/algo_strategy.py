@@ -32,14 +32,15 @@ class AlgoStrategy(gamelib.AlgoCore):
         # The base walls direct our mobile units to the enemy's right flank.
         # The base turrets focuses on our own right flank.
         # The order of the locations MATTERS.
-        self.base_wall_locations = [[0, 13], [27, 13], [1, 12], [22, 12], [23, 12], [25, 12], [26, 12], [21, 11], [23, 11],
-                               [3, 10], [6, 10], [20, 10], [4, 9], [5, 9], [7, 9], [8, 9], [9, 9], [10, 9], [11, 9],
-                               [12, 9], [13, 9], [14, 9], [15, 9], [16, 9], [17, 9], [18, 9], [19, 9]]
-        self.base_turret_locations = [[22, 11], [2, 11]]
+        self.base_wall_locations = [[27, 13], [22, 12], [23, 12], [25, 12], [26, 12], [21, 11], [23, 11],
+                                [20, 10], [7, 9], [8, 9], [9, 9], [10, 9], [11, 9],
+                               [12, 9], [13, 9], [14, 9], [15, 9], [16, 9], [17, 9], [18, 9], [19, 9],
+                               [0, 13], [1, 13], [2, 12], [3, 12], [4, 12], [5, 12], [6, 12], [6, 11], [6, 10]]
+        self.base_turret_locations = [[22, 11], [3, 11]]
 
         # Additional turrets reinforce our defense.
         # The order of the locations MATTERS.
-        self.non_reactive_turret_locations = [[25, 11], [21, 10], [6, 9], [20, 9]]
+        self.non_reactive_turret_locations = [[4, 11],[25, 11], [21, 10], [6, 9], [20, 9],[2, 11],[5, 11]]
         self.reactive_turret_locations = [[]]
 
         # Supports reinforce our offense. They're currently non-reactive and prioritize higher Y-position for
@@ -49,11 +50,11 @@ class AlgoStrategy(gamelib.AlgoCore):
 
         # The demolisher_charge is one of our Zerg rush strategies. It should be used when the enemy has some defense
         # while we don't have numerous supports. We'll stack demolishers on one point to achieve maximal efficiency.
-        self.demolisher_assembly_point = [[6, 7]]
+        self.demolisher_assembly_point = [[10, 3]]
 
         # The scout_charge is one of our Zerg rush strategies. It should be used when we have lots of supports,
         # or when we are at a huge advantage, or if we find a huge breach in enemy's defense.
-        self.scout_assembly_point = [[6, 7]]
+        self.scout_assembly_point = [[10, 3]]
 
         # This might be useful in the future.
         # self.helper_map = gamelib.game_map.GameMap(self.config)
@@ -202,13 +203,13 @@ class AlgoStrategy(gamelib.AlgoCore):
         self.build_more_supports(game_state)
         if self.get_count_after_deployment(SUPPORT) >=7:
             self.build_more_turrets(game_state)
-        # self.check_for_renovations(game_state)
+        self.check_for_renovations(game_state)
 
         # This lists keeps record of the attack form we want to use this turn
         attacks = []
 
         # We might need to fine-tune the conditions for our choice.
-        if game_state.number_affordable(SCOUT) >= 14 and self.get_count_after_deployment(SUPPORT) >= 5:
+        if game_state.number_affordable(SCOUT) >= 11 and (self.get_count_after_deployment(SUPPORT) >= 5 or self.get_count_after_deployment(SUPPORT) == 0):
             attacks.append(self.scout_charge)
         elif game_state.number_affordable(DEMOLISHER) >= 4 and self.get_count_after_deployment(SUPPORT) >= 1:
             attacks.append(self.demolisher_charge)
@@ -233,8 +234,9 @@ class AlgoStrategy(gamelib.AlgoCore):
         if game_state.turn_number == 0:
             game_state.attempt_spawn(WALL, self.base_wall_locations, self.deployed_structures_this_turn_count, 1)
         game_state.attempt_spawn(TURRET, self.base_turret_locations, self.deployed_structures_this_turn_count, 1)
-        game_state.attempt_spawn(WALL, self.base_wall_locations, self.deployed_structures_this_turn_count, 1)
         game_state.attempt_upgrade(self.base_turret_locations)
+        game_state.attempt_spawn(WALL, self.base_wall_locations, self.deployed_structures_this_turn_count, 1)
+        
 
     def build_a_few_turrets(self, game_state):
         for location in self.non_reactive_turret_locations[:2]:
@@ -317,8 +319,9 @@ class AlgoStrategy(gamelib.AlgoCore):
         List of structure for each player where structures[0] := ours structures[1] := opponent
         """
         structures = [{WALL: [], SUPPORT: [], TURRET: []}, {WALL: [], SUPPORT: [], TURRET: []}]
-        for tile in game_state.game_map:
-            for unit in tile:
+        for tile_location in game_state.game_map:
+            for unit in game_state.game_map[tile_location]:
+                gamelib.debug_write(f"Iterating over tile: {tile_location} and unit {unit}")
                 structures[unit.player_index][unit.unit_type].append(unit)
         return structures
 
@@ -387,6 +390,9 @@ class AlgoStrategy(gamelib.AlgoCore):
             gamelib.debug_write(f"Trying to replace {num_to_replace} for unit {unit_list[0].unit_type}")
             ### Don't want to try and delete more than we have
             removal_locations = [[int(unit.x), int(unit.y)] for unit in unit_list[:num_to_replace]]
+            if not removal_locations:
+                self.to_replace[unit_list[0].unit_type] = []
+                continue
             flagged_for_removal = game_state.attempt_remove(removal_locations)
             if flagged_for_removal != len(removal_locations):
                 gamelib.debug_write(f"Was not able to flag all structures of type {unit_list[0].unit_type} for removal")
@@ -426,7 +432,13 @@ class AlgoStrategy(gamelib.AlgoCore):
     # This method detects structured badly damaged and actively under attack, and deletes them.
     # Part of the rebuilding work should be done by other functions like build_base.
     def check_for_renovations(self, game_state):
-        pass
+        gamelib.debug_write("Found badly damaged structures, removing!")
+        our_units_dict = self.get_all_structures(game_state)[0]
+        units_list = []
+        gamelib.debug_write(f"Our units: {our_units_dict}")
+        for unit_list_type in our_units_dict.values():
+            units_list.extend(unit_list_type)
+        self.log_broken_structures(game_state, units_list)
 
     # This function adds up the number in self.last_turn_structure_count and  self.deployed_structures_this_turn_count
     # It gives us the number of a certain structure WE have after the deployment stage.
