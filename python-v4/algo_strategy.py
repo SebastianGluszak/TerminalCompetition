@@ -32,22 +32,22 @@ class AlgoStrategy(gamelib.AlgoCore):
         # The base walls direct our mobile units to the enemy's right flank.
         # The base turrets focuses on our own right flank.
         # The order of the locations MATTERS.
-        self.base_wall_locations = [[27, 13], [22, 12], [23, 12], [25, 12], [26, 12], [21, 11], [23, 11],
-                                [20, 10], [7, 9], [8, 9], [9, 9], [10, 9], [11, 9],
-                               [12, 9], [13, 9], [14, 9], [15, 9], [16, 9], [17, 9], [18, 9], [19, 9],
+        self.base_wall_locations = [[27, 13], [22, 12], [23, 12], [25, 12], [26, 12], [21, 12],
+                                [20, 11], [7, 9], [8, 9], [9, 9], [10, 9], [11, 9],
+                               [12, 9], [13, 9], [14, 9], [15, 9], [16, 9], [17, 9], [18, 9], [19, 10],
                                [0, 13], [1, 13], [2, 12], [3, 12], [4, 12], [5, 12], [6, 12], [6, 11], [6, 10],
                                [25, 11], [24, 10], [23, 9], [22, 8]]
         self.base_turret_locations = [[22, 11], [3, 11]]
 
         # Additional turrets reinforce our defense.
         # The order of the locations MATTERS.
-        self.non_reactive_turret_locations = [[4, 11],[25, 11], [21, 10], [6, 9], [20, 9],[2, 11],[5, 11]]
+        self.non_reactive_turret_locations = [[4, 11],[25, 11], [21, 11], [6, 9], [20, 10],[2, 11],[5, 11]]
         self.reactive_turret_locations = [[]]
 
         # Supports reinforce our offense. They're currently non-reactive and prioritize higher Y-position for
         # potential upgrading. I would suppose we won't have reactive supports.
         # The order of the locations MATTERS.
-        self.support_locations = [[22, 10], [21, 9], [20, 8], [19, 8], [18, 8], [17, 8], [7, 8], [8, 8], [9, 8], [10, 8] ]
+        self.support_locations = [[22, 11], [21, 10], [20, 9], [19, 9], [18, 8], [17, 8], [7, 8], [8, 8], [9, 8], [10, 8] ]
 
         # The demolisher_charge is one of our Zerg rush strategies. It should be used when the enemy has some defense
         # while we don't have numerous supports. We'll stack demolishers on one point to achieve maximal efficiency.
