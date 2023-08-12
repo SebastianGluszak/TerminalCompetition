@@ -32,22 +32,21 @@ class AlgoStrategy(gamelib.AlgoCore):
         # The base walls direct our mobile units to the enemy's right flank.
         # The base turrets focuses on our own right flank.
         # The order of the locations MATTERS.
-        self.base_wall_locations = [[27, 13], [22, 12], [23, 12], [25, 12], [26, 12], [21, 12],
-                                [20, 11], [7, 9], [8, 9], [9, 9], [10, 9], [11, 9],
-                               [12, 9], [13, 9], [14, 9], [15, 9], [16, 9], [17, 9], [18, 9], [19, 10],
-                               [0, 13], [1, 13], [2, 12], [3, 12], [4, 12], [5, 12], [6, 12], [6, 11], [6, 10],
-                               [25, 11], [24, 10], [23, 9], [22, 8]]
-        self.base_turret_locations = [[22, 11], [3, 11]]
+        self.base_wall_locations  = [ [19, 13], [20, 13], [21, 13], [5, 12], [6, 12], [18, 12], [19, 12], [21, 12], [23, 12], [24, 12], [6, 11], [18, 11], [20, 11], [21, 11], [23, 11], [6, 10], [15, 10], [16, 10], [20, 10], [23, 10], [6, 9], [7, 9], [8, 9], [9, 9], [10, 9], [11, 9], [12, 9], [13, 9], [14, 9], [15, 9], [17, 9], [18, 9], [19, 9], [23, 9], [22, 8], [20, 7], [21, 7]]
+        
+        self.front_walls = [[0, 13], [1, 13], [2, 13],  [24, 13], [25, 13], [26, 13], [27, 13],[2, 12], [3, 12], [4, 12],[19,13], [20,13], [21,13],]
+        self.key_wall_locations = [[0, 13], [1, 13], [2, 13], [24,13], [25,13], [26,13], [27,13]]
+        self.base_turret_locations = [[24,11],[20, 12], [3, 11]]
 
         # Additional turrets reinforce our defense.
         # The order of the locations MATTERS.
-        self.non_reactive_turret_locations = [[4, 11],[25, 11], [21, 11], [6, 9], [20, 10],[2, 11],[5, 11]]
+        self.non_reactive_turret_locations = [[25, 11], [19, 11], [4, 11], [5, 11], [19, 10], [24, 10], [16, 9], [20, 6]]
         self.reactive_turret_locations = [[]]
 
         # Supports reinforce our offense. They're currently non-reactive and prioritize higher Y-position for
         # potential upgrading. I would suppose we won't have reactive supports.
         # The order of the locations MATTERS.
-        self.support_locations = [[22, 11], [21, 10], [20, 9], [19, 9], [18, 8], [17, 8], [7, 8], [8, 8], [9, 8], [10, 8] ]
+        self.support_locations = [[7, 8], [8, 8], [9, 8], [10, 8], [11, 8], [12, 8], [13, 8], [14, 8], [15, 8], [16, 8], [17, 8]]
 
         # The demolisher_charge is one of our Zerg rush strategies. It should be used when the enemy has some defense
         # while we don't have numerous supports. We'll stack demolishers on one point to achieve maximal efficiency.
@@ -203,6 +202,7 @@ class AlgoStrategy(gamelib.AlgoCore):
 
         self.build_base(game_state)
         self.build_a_few_turrets(game_state)
+        self.upgrade_a_few_key_walls(game_state)
         self.build_a_few_supports(game_state)
         self.build_more_supports(game_state)
         if self.get_count_after_deployment(SUPPORT) >=7:
@@ -213,9 +213,9 @@ class AlgoStrategy(gamelib.AlgoCore):
         attacks = []
 
         # We might need to fine-tune the conditions for our choice.
-        if game_state.number_affordable(SCOUT) >= 11 and (self.get_count_after_deployment(SUPPORT) >= 5 or self.get_count_after_deployment(SUPPORT) == 0):
+        if game_state.number_affordable(SCOUT) >= 12 and (self.get_count_after_deployment(SUPPORT) >= 3):
             attacks.append(self.scout_charge)
-        elif game_state.number_affordable(DEMOLISHER) >= 4 and self.get_count_after_deployment(SUPPORT) >= 1:
+        elif game_state.number_affordable(DEMOLISHER) >= 4 and self.get_count_after_deployment(SUPPORT) >= 0:
             attacks.append(self.demolisher_charge)
         for attack in attacks:
             attack(game_state)
@@ -233,17 +233,26 @@ class AlgoStrategy(gamelib.AlgoCore):
     ##################################################################################
     # Below this line are specific helper functions that are called by our strategies.
     ##################################################################################
-
+    def upgrade_a_few_key_walls(self, game_state):
+        done = 0
+        for wall_loc in self.key_wall_locations:
+            done += game_state.attempt_upgrade(wall_loc)
+            if done == 2:
+                break
+            
     def build_base(self, game_state):
         if game_state.turn_number == 0:
+            game_state.attempt_spawn(WALL, self.front_walls, self.deployed_structures_this_turn_count, 1)
+            game_state.attempt_spawn(TURRET, self.base_turret_locations, self.deployed_structures_this_turn_count, 1)
+            game_state.attempt_upgrade(self.base_turret_locations)
             game_state.attempt_spawn(WALL, self.base_wall_locations, self.deployed_structures_this_turn_count, 1)
         game_state.attempt_spawn(TURRET, self.base_turret_locations, self.deployed_structures_this_turn_count, 1)
         game_state.attempt_upgrade(self.base_turret_locations)
         game_state.attempt_spawn(WALL, self.base_wall_locations, self.deployed_structures_this_turn_count, 1)
-        
+    
 
     def build_a_few_turrets(self, game_state):
-        for location in self.non_reactive_turret_locations[:2]:
+        for location in self.non_reactive_turret_locations[:3]:
             if game_state.number_affordable(TURRET) == 0:
                 break
             if not game_state.contains_stationary_unit(location):
