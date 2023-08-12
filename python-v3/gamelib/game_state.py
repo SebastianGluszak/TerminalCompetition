@@ -352,7 +352,7 @@ class GameState:
                 (stationary or on_edge) and
                 (not stationary or num == 1))
 
-    def  attempt_spawn(self, unit_type, locations, num=1):
+    def attempt_spawn(self, unit_type, locations, deployed_structures_this_turn_count, num=1):
         """Attempts to spawn new units with the type given in the given locations.
 
         Args:
@@ -389,6 +389,8 @@ class GameState:
                     spawned_units += 1
                 else:
                     break
+        if unit_type == WALL or unit_type == SUPPORT or unit_type == TURRET:
+            deployed_structures_this_turn_count[unit_type] += spawned_units
         return spawned_units
 
     def attempt_remove(self, locations):
