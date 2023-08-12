@@ -73,6 +73,8 @@ class AlgoStrategy(gamelib.AlgoCore):
         self.last_turn_structure_count = {}
         self.deployed_structures_this_turn_count = {}
 
+        self.last_turn_structures = {}
+
         # For renovations
         self.to_replace = {}  ### {WALL:[], TURRET:[], SUPPORT:[]}
 
@@ -96,6 +98,7 @@ class AlgoStrategy(gamelib.AlgoCore):
         INTERCEPTOR = config["unitInformation"][5]["shorthand"]
         self.last_turn_structure_count = [{WALL: 0, SUPPORT: 0, TURRET: 0}, {WALL: 0, SUPPORT: 0, TURRET: 0}]
         self.deployed_structures_this_turn_count = {WALL: 0, SUPPORT: 0, TURRET: 0}
+        self.structures = [{WALL: [], SUPPORT: [], TURRET: []}, {WALL: [], SUPPORT: [], TURRET: []}]
         MP = 1
         SP = 0
 
@@ -308,6 +311,9 @@ class AlgoStrategy(gamelib.AlgoCore):
                     if unit is not False:
                         counts[unit.player_index][unit.unit_type] += 1
         return counts
+    
+    def get_structures(self, all_structures, unit_type, player_index):
+        return all_structures[player_index][unit_type]
 
     def get_all_structures(self, game_state):
         """
@@ -320,10 +326,13 @@ class AlgoStrategy(gamelib.AlgoCore):
         List of structure for each player where structures[0] := ours structures[1] := opponent
         """
         structures = [{WALL: [], SUPPORT: [], TURRET: []}, {WALL: [], SUPPORT: [], TURRET: []}]
-        for tile_location in game_state.game_map:
-            for unit in game_state.game_map[tile_location]:
-                gamelib.debug_write(f"Iterating over tile: {tile_location} and unit {unit}")
-                structures[unit.player_index][unit.unit_type].append(unit)
+        for x in range(28):
+            for y in range(28):
+                location = [x, y]
+                if game_state.game_map.in_arena_bounds(location):
+                    unit = game_state.contains_stationary_unit(location)
+                    if unit is not False:
+                        structures[unit.player_index][unit.unit_type].append(unit)
         return structures
 
     def is_badly_damaged(self, game_state, location):
