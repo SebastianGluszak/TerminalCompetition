@@ -3,6 +3,7 @@ import random
 from sys import maxsize
 import json
 from typing import List
+
 # import math
 # import warnings
 
@@ -30,25 +31,21 @@ class AlgoStrategy(gamelib.AlgoCore):
         # Base walls and base turrets are what we try to maintain all the time.
         # The base walls direct our mobile units to the enemy's right flank.
         # The base turrets focuses on our own right flank.
-        self.base_wall_locations = [[0, 13], [1, 13], [23, 13], [25, 13], [26, 13],
-                                     [27, 13], [2, 12], [3, 12], [22, 12], [25, 12],
-                                       [4, 11], [21, 11], [25, 11], [5, 10], [6, 10], 
-                                       [7, 10], [8, 10], [9, 10], [10, 10], [11, 10], 
-                                       [12, 10], [13, 10], [14, 10], [15, 10], [16, 10], 
-                                       [17, 10], [18, 10], [19, 10], [20, 10], [24, 10], [23, 9]]
-        self.important_turrets = [[26,12], [23, 12], [3, 11]]
-        self.base_turret_locations = [[22, 11], [21,10], [4,10], [1,12]]
+        # The order of the locations MATTERS.
+        self.base_wall_locations = [[0, 13], [27, 13], [1, 12], [22, 12], [23, 12], [25, 12], [26, 12], [21, 11], [23, 11],
+                               [3, 10], [6, 10], [20, 10], [4, 9], [5, 9], [7, 9], [8, 9], [9, 9], [10, 9], [11, 9],
+                               [12, 9], [13, 9], [14, 9], [15, 9], [16, 9], [17, 9], [18, 9], [19, 9]]
+        self.base_turret_locations = [[22, 11], [2, 11]]
 
         # Additional turrets reinforce our defense.
-        self.non_reactive_turret_locations = [[1, 12], [21, 12], [26, 12], [3, 11], [20, 11], [4, 10], [21, 10], [20, 9]]
+        # The order of the locations MATTERS.
+        self.non_reactive_turret_locations = [[25, 11], [21, 10], [6, 9], [20, 9]]
         self.reactive_turret_locations = [[]]
 
         # Supports reinforce our offense. They're currently non-reactive and prioritize higher Y-position for
         # potential upgrading. I would suppose we won't have reactive supports.
-        self.support_locations = [[6, 8], [8, 8], [10, 8], [12, 8],
-                                                             [14, 8], [16, 8], [18, 8], [8, 7],
-                                                               [10, 7], [12, 7], [14, 7], [16, 7],
-                                                                 [10, 6], [14, 6]]
+        # The order of the locations MATTERS.
+        self.support_locations = [[22, 10], [21, 9], [20, 8], [19, 8], [18, 8], [17, 8], [7, 8], [8, 8], [9, 8], [10, 8] ]
 
         # The demolisher_charge is one of our Zerg rush strategies. It should be used when the enemy has some defense
         # while we don't have numerous supports. We'll stack demolishers on one point to achieve maximal efficiency.
@@ -70,15 +67,19 @@ class AlgoStrategy(gamelib.AlgoCore):
         # We record where enemy tends to stack their mobile units (on action frame).
         self.enemy_assembly_points = []
 
-        # We record structure counts for analysis.
+        # We record structure counts offense & defense analysis.
         self.last_turn_structure_count = {}
         self.deployed_structures_this_turn_count = {}
 
-        self.to_replace = {} ### {WALL:[], TURRET:[], SUPPORT:[]}
-        self.dynamic_attack_holes = [[9,10], [13,10], [17,10], [15,10]]
-        self.dynamic_attack_start_locations = [[5,8], [8,5], [10,3], [8,5]]
+        # For renovations
+        self.to_replace = {}  ### {WALL:[], TURRET:[], SUPPORT:[]}
+
+        # [Investigation] Open a hole on our base wall and attack.
+        self.dynamic_attack_holes = [[9, 10], [13, 10], [17, 10], [15, 10]]
+        self.dynamic_attack_start_locations = [[5, 8], [8, 5], [10, 3], [8, 5]]
         self.dynamic_attack_index = 0
         self.exempt_walls = []
+
     # We do nothing in this function.
     def on_game_start(self, config):
         # Boilerplate for game_start.
@@ -107,12 +108,9 @@ class AlgoStrategy(gamelib.AlgoCore):
         game_state.suppress_warnings(True)  # Comment or remove this line to enable warnings.
 
         # User defined on_turn behavior
-        self.last_turn_structure_count=self.count_all_structures(game_state)
+        self.last_turn_structure_count = self.count_all_structures(game_state)
         self.update_situation(game_state)
         self.situation_based_strategy(game_state, self.situation)
-        gamelib.debug_write('Number of WALLS: ' + str(self.get_count_after_deployment(WALL)))
-        gamelib.debug_write('Number of SUPPORTS: ' + str(self.get_count_after_deployment(SUPPORT)))
-        gamelib.debug_write('Number of TURRETS: ' + str(self.get_count_after_deployment(TURRET)))
         self.deployed_structures_this_turn_count = {WALL: 0, SUPPORT: 0, TURRET: 0}
         game_state.submit_turn()
 
@@ -160,9 +158,12 @@ class AlgoStrategy(gamelib.AlgoCore):
     def update_situation(self, game_state):
         score = 0
         score += 10 * (game_state.my_health - game_state.enemy_health)
-        score += 5 * (self.count_structure(self.last_turn_structure_count,SUPPORT, 0) - self.count_structure(self.last_turn_structure_count,SUPPORT, 1))
-        score += 3 * (self.count_structure(self.last_turn_structure_count,TURRET, 0) - self.count_structure(self.last_turn_structure_count,TURRET, 1))
-        score += 0.5 * (self.count_structure(self.last_turn_structure_count,TURRET, 0) - self.count_structure(self.last_turn_structure_count,TURRET, 1))
+        score += 5 * (self.count_structure(self.last_turn_structure_count, SUPPORT, 0) - self.count_structure(
+            self.last_turn_structure_count, SUPPORT, 1))
+        score += 3 * (self.count_structure(self.last_turn_structure_count, TURRET, 0) - self.count_structure(
+            self.last_turn_structure_count, TURRET, 1))
+        score += 0.5 * (self.count_structure(self.last_turn_structure_count, TURRET, 0) - self.count_structure(
+            self.last_turn_structure_count, TURRET, 1))
         score += 1 * (game_state.get_resource(MP, 0) + game_state.get_resource(SP, 0)
                       - game_state.get_resource(MP, 1) - game_state.get_resource(SP, 1))
         if score > 30:
@@ -183,33 +184,40 @@ class AlgoStrategy(gamelib.AlgoCore):
             self.balance_strategy(game_state)
 
     def advantage_strategy(self, game_state):
-        # Vanilla idea: first make sure base is good, then build a few turrets and supports, then assemble troops and
-        # prepare for an attack. If we're rich in structure points, then build more supports first and then turrets.
+        # Building idea:
+        # 1. Make sure base is good.
+        # 2. Build a few turrets on key locations on side wings.
+        # 3. Build a few supports on the right and prepare to attack.
+        # 4. Build more supports right below the horizontal line.
+        # 5. Check for potential sell & replace
+        #
+        # Attacking idea:
+        # 1. Normally, just accumulate MP till we have enough demolishers and let them charge when
+        # there is at least some amount of supports.
+        # 2. If we have lots of supports, then use scouts spam.
 
-        attacks = []
-        
         self.build_base(game_state)
         self.build_a_few_turrets(game_state)
         self.build_a_few_supports(game_state)
         self.build_more_supports(game_state)
-        self.build_more_turrets(game_state)
-        # We might also want to attack only if we have at least one support.
-        if game_state.number_affordable(DEMOLISHER) >= 4:
-            # attacks.append(self.demolisher_charge)
-            # attacks.append(self.demolisher_charge)
-            attacks.append(self.dynamic_attack)
-            attacks.append(self.dynamic_attack)
-        if game_state.number_affordable(SCOUT) >= 13:
-            attacks.append(self.scout_charge)
-        if len(attacks) >= 1:
-            ### Can do both attacks
-            chosen_attack = random.choice(attacks)
-            chosen_attack(game_state)
-            gamelib.debug_write(f"Chosen attack {chosen_attack}!")
+        if self.get_count_after_deployment(SUPPORT) >=7:
+            self.build_more_turrets(game_state)
+        # self.check_for_renovations(game_state)
 
+        # This lists keeps record of the attack form we want to use this turn
+        attacks = []
+
+        # We might need to fine-tune the conditions for our choice.
+        if game_state.number_affordable(SCOUT) >= 14 and self.get_count_after_deployment(SUPPORT) >= 5:
+            attacks.append(self.scout_charge)
+        elif game_state.number_affordable(DEMOLISHER) >= 4 and self.get_count_after_deployment(SUPPORT) >= 1:
+            attacks.append(self.demolisher_charge)
+        for attack in attacks:
+            attack(game_state)
+            # gamelib.debug_write(f"We used {attack}!!")
 
     def balance_strategy(self, game_state):
-        #self.send_interceptor(game_state)
+        # self.send_interceptor(game_state)
         self.advantage_strategy(game_state)
 
     # We should prioritize improving advantage & balance strategies over implementing disadvantage_strategy, because we
@@ -217,30 +225,40 @@ class AlgoStrategy(gamelib.AlgoCore):
     def disadvantage_strategy(self, game_state):
         self.advantage_strategy(game_state)
 
-    ########################################################################################
+    ##################################################################################
     # Below this line are specific helper functions that are called by our strategies.
-    ########################################################################################
-    
+    ##################################################################################
+
     def build_base(self, game_state):
-        non_exempt_walls = [i for i in self.base_wall_locations if i not in self.exempt_walls]
         if game_state.turn_number == 0:
-            gamelib.debug_write(f"Attemping to build walls")
-            game_state.attempt_spawn(WALL, non_exempt_walls, self.deployed_structures_this_turn_count, 1)
-        game_state.attempt_spawn(TURRET, self.important_turrets, self.deployed_structures_this_turn_count, 1)
-        game_state.attempt_upgrade(self.important_turrets)
-        game_state.attempt_spawn(WALL, non_exempt_walls, self.deployed_structures_this_turn_count, 1)
+            game_state.attempt_spawn(WALL, self.base_wall_locations, self.deployed_structures_this_turn_count, 1)
         game_state.attempt_spawn(TURRET, self.base_turret_locations, self.deployed_structures_this_turn_count, 1)
+        game_state.attempt_spawn(WALL, self.base_wall_locations, self.deployed_structures_this_turn_count, 1)
         game_state.attempt_upgrade(self.base_turret_locations)
 
     def build_a_few_turrets(self, game_state):
-        pass
+        for location in self.non_reactive_turret_locations[:2]:
+            if game_state.number_affordable(TURRET) == 0:
+                break
+            if not game_state.contains_stationary_unit(location):
+                game_state.attempt_spawn(TURRET, location, self.deployed_structures_this_turn_count, 1)
+                game_state.attempt_upgrade(location)
+            elif not self.is_badly_damaged(game_state, location):
+                game_state.attempt_upgrade(location)
 
     def build_a_few_supports(self, game_state):
-        pass
+        for location in self.support_locations[:2]:
+            if game_state.number_affordable(SUPPORT) == 0:
+                break
+            if not game_state.contains_stationary_unit(location):
+                game_state.attempt_spawn(SUPPORT, location, self.deployed_structures_this_turn_count, 1)
+                game_state.attempt_upgrade(location)
+            elif not self.is_badly_damaged(game_state, location):
+                game_state.attempt_upgrade(location)
 
     def build_more_supports(self, game_state):
         for location in self.support_locations:
-            if game_state.number_affordable(SUPPORT) < 1:
+            if game_state.number_affordable(SUPPORT) == 0:
                 break
             if not game_state.contains_stationary_unit(location):
                 game_state.attempt_spawn(SUPPORT, location, self.deployed_structures_this_turn_count, 1)
@@ -249,13 +267,22 @@ class AlgoStrategy(gamelib.AlgoCore):
                 game_state.attempt_upgrade(location)
 
     def build_more_turrets(self, game_state):
-        game_state.attempt_spawn(TURRET, self.non_reactive_turret_locations, self.deployed_structures_this_turn_count, 1)
+        for location in self.non_reactive_turret_locations:
+            if game_state.number_affordable(TURRET) == 0:
+                break
+            if not game_state.contains_stationary_unit(location):
+                game_state.attempt_spawn(TURRET, location, self.deployed_structures_this_turn_count, 1)
+                game_state.attempt_upgrade(location)
+            elif not self.is_badly_damaged(game_state, location):
+                game_state.attempt_upgrade(location)
 
     def demolisher_charge(self, game_state):
-        game_state.attempt_spawn(DEMOLISHER, self.demolisher_assembly_point, self.deployed_structures_this_turn_count, 100)
+        game_state.attempt_spawn(DEMOLISHER, self.demolisher_assembly_point, self.deployed_structures_this_turn_count,
+                                 game_state.number_affordable(DEMOLISHER))
 
     def scout_charge(self, game_state):
-        game_state.attempt_spawn(SCOUT, self.scout_assembly_point, self.deployed_structures_this_turn_count, 100)
+        game_state.attempt_spawn(SCOUT, self.scout_assembly_point, self.deployed_structures_this_turn_count, 
+                                 game_state.number_affordable(SCOUT))
 
     def count_structure(self, all_structure_count, unit_type, player_index):
         return all_structure_count[player_index][unit_type]
@@ -278,7 +305,7 @@ class AlgoStrategy(gamelib.AlgoCore):
                     if unit is not False:
                         counts[unit.player_index][unit.unit_type] += 1
         return counts
-    
+
     def get_all_structures(self, game_state):
         """
         Gets all structures for each player
@@ -300,22 +327,21 @@ class AlgoStrategy(gamelib.AlgoCore):
         Determines if a stationary unit at a particular location in badly damaged.
         We can fine tune thresholds as necessary for each structure.
         ARGUMENTS:
-        RGUMENTS:
         self := self
         game_state := game_state
         location := [x, y] coordinate position on map
         RETURNS:
-        Boolean whether or not unit is badly damaged
+        Boolean whether unit is badly damaged
         """
         unit = game_state.contains_stationary_unit(location)
         # No unit exists at location
         if unit == False:
             return False
-        
+
         return self.is_badly_damaged_unit(unit)
 
     def is_badly_damaged_unit(self, unit: gamelib.GameUnit):
-        remaining_health = unit.health / unit.max_health 
+        remaining_health = unit.health / unit.max_health
 
         # Fine tune based on unit type
         if unit.unit_type == WALL:
@@ -325,30 +351,27 @@ class AlgoStrategy(gamelib.AlgoCore):
         elif unit.unit_type == SUPPORT:
             return remaining_health < 0.4
         else:
-            gamelib.debug_write(f"ERROR: Bad argument to 'is_badly_damaged_unit' expected structure type but got {unit.unit_type}")
-            return 1 ### Make sure it doesn't crash
+            gamelib.debug_write(
+                f"ERROR: Bad argument to 'is_badly_damaged_unit' expected structure type but got {unit.unit_type}")
+            return 1  ### Make sure it doesn't crash
 
-    
     def log_broken_structures(self, game_state: gamelib.GameState, our_structures_unit_list: List[gamelib.GameUnit]):
         """
         Logs badly damaged structures into self.to_replace dictionary
         Uses a greedy strategy of turrets, walls then supports
         For each category it takes the most damaged ones first.
-
-        
-        
         """
         # delete the structures badly damaged and under attack (need a way to check under attack or not)
 
-
         ### Keeps track of which structures we deleted last turn and need to replace on the current turn
         ### Current turn code will need to be modified to support this
-        self.to_replace = {TURRET:[], WALL:[], SUPPORT:[]}
-        bad_turrets = [turret for turret in our_structures_unit_list if turret.unit_type == TURRET and self.is_badly_damaged_unit(turret)]
-        bad_walls = [wall for wall in our_structures_unit_list if wall.unit_type == WALL and self.is_badly_damaged_unit(wall)]
-        bad_supports = [support for support in our_structures_unit_list if support.unit_type == SUPPORT and self.is_badly_damaged_unit(support)]
-
-        
+        self.to_replace = {TURRET: [], WALL: [], SUPPORT: []}
+        bad_turrets = [turret for turret in our_structures_unit_list if
+                       turret.unit_type == TURRET and self.is_badly_damaged_unit(turret)]
+        bad_walls = [wall for wall in our_structures_unit_list if
+                     wall.unit_type == WALL and self.is_badly_damaged_unit(wall)]
+        bad_supports = [support for support in our_structures_unit_list if
+                        support.unit_type == SUPPORT and self.is_badly_damaged_unit(support)]
 
         order = [bad_turrets, bad_walls, bad_supports]
 
@@ -360,7 +383,7 @@ class AlgoStrategy(gamelib.AlgoCore):
                 continue
             unit_list.sort(key=lambda x: x.health)
             num_affordable = game_state.number_affordable(unit_list[0].unit_type)
-            num_to_replace = min(num_affordable, len(unit_list)) 
+            num_to_replace = min(num_affordable, len(unit_list))
             gamelib.debug_write(f"Trying to replace {num_to_replace} for unit {unit_list[0].unit_type}")
             ### Don't want to try and delete more than we have
             removal_locations = [[int(unit.x), int(unit.y)] for unit in unit_list[:num_to_replace]]
@@ -369,43 +392,48 @@ class AlgoStrategy(gamelib.AlgoCore):
                 gamelib.debug_write(f"Was not able to flag all structures of type {unit_list[0].unit_type} for removal")
             self.to_replace[unit_list[0].unit_type] = removal_locations
         return list(map(len, self.to_replace.values()))
-                    
+
     def build_replacements(self, game_state: gamelib.GameState):
 
         turrets_built = game_state.attempt_spawn(TURRET, self.to_replace[TURRET], self.deployed_structures_this_turn_count, 1)
         walls_built = game_state.attempt_spawn(WALL, self.to_replace[WALL], self.deployed_structures_this_turn_count, 1)
         supports_built = game_state.attempt_spawn(SUPPORT, self.to_replace[SUPPORT], self.deployed_structures_this_turn_count, 1)
         gamelib.debug_write(f"Built {turrets_built} turrets {walls_built} walls and {supports_built} supports")
-        if turrets_built != len(self.to_replace[TURRET]) or walls_built != len(self.to_replace[WALL]) or supports_built != len(self.to_replace[SUPPORT]):
+        if turrets_built != len(self.to_replace[TURRET]) or walls_built != len(
+                self.to_replace[WALL]) or supports_built != len(self.to_replace[SUPPORT]):
             gamelib.debug_write(f"Didn't replace all the badly damaged structures, probably ran out of money")
         return [turrets_built, walls_built, supports_built]
-    
 
     def send_interceptor(self, game_state):
         game_state.attempt_spawn(INTERCEPTOR, self.scout_assembly_point, self.deployed_structures_this_turn_count, 1)
 
-
-
     def dynamic_attack(self, game_state: gamelib.GameState):
         ### First we need to use the hole from last turn
-        cur_hole = self.dynamic_attack_holes[self.dynamic_attack_index-1]
+        cur_hole = self.dynamic_attack_holes[self.dynamic_attack_index - 1]
         ###  1000 just spawns as many as we can
-        game_state.attempt_spawn(DEMOLISHER, self.dynamic_attack_start_locations[self.dynamic_attack_index-1],  self.deployed_structures_this_turn_count, 1000)
-        #self.exempt_walls.append(self.dynamic_attack_holes[self.dynamic_attack_index])
+        game_state.attempt_spawn(DEMOLISHER, self.dynamic_attack_start_locations[self.dynamic_attack_index - 1], self.deployed_structures_this_turn_count, 100)
+        # self.exempt_walls.append(self.dynamic_attack_holes[self.dynamic_attack_index])
         if cur_hole in self.exempt_walls:
             self.exempt_walls.remove(cur_hole)
-        #game_state.attempt_remove(self.dynamic_attack_holes[self.dynamic_attack_index])
+        # game_state.attempt_remove(self.dynamic_attack_holes[self.dynamic_attack_index])
         ### Now we need to block the hole from 2 turns ago
-        old_hole = self.dynamic_attack_holes[self.dynamic_attack_index-2]
-        #game_state.attempt_spawn(WALL, old_hole)
+        old_hole = self.dynamic_attack_holes[self.dynamic_attack_index - 2]
+        # game_state.attempt_spawn(WALL, old_hole)
 
         self.dynamic_attack_index += 1
         self.dynamic_attack_index %= len(self.dynamic_attack_holes)
 
+    # This method detects structured badly damaged and actively under attack, and deletes them.
+    # Part of the rebuilding work should be done by other functions like build_base.
+    def check_for_renovations(self, game_state):
+        pass
+
+    # This function adds up the number in self.last_turn_structure_count and  self.deployed_structures_this_turn_count
+    # It gives us the number of a certain structure WE have after the deployment stage.
     def get_count_after_deployment(self, unit_type):
         return self.last_turn_structure_count[0][unit_type] + self.deployed_structures_this_turn_count[unit_type]
 
-    
+
 if __name__ == "__main__":
     algo = AlgoStrategy()
     algo.start()
